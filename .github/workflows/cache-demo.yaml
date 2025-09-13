@@ -1,0 +1,93 @@
+name: Github cache demo
+run-name: Cache action demo
+on: [push]
+env:
+  venv-path: demo-path 
+jobs:
+  cache-demo-job:
+    runs-on: ubuntu-latest 
+    steps:
+
+      - name: Cache python modules
+        id: cache-python
+        uses: actions/cache@v4.2.4
+        env:
+          cache-name: cache-python-modules
+        with:
+          path: ./${{ env.venv-path }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}
+
+      - if: ${{ steps.cache-python.outputs.cache-hit != 'true' }}
+        name: Create requirements.txt file
+        id: requirements-file-creation
+        run: |
+            echo "humanize" >> requirements.txt
+      
+      - if: ${{ steps.cache-python.outputs.cache-hit != 'true' }}
+        name: Create python virtual environment
+        id: python-venv-creation
+        run: |
+            python -m venv ${{ env.venv-path }}
+      
+      - if: ${{ steps.cache-python.outputs.cache-hit != 'true' }}
+        name: Install python modules
+        id: install-python-modules
+        run: |
+            source ${{ env.venv-path }}/bin/activate
+            pip install -r requirements.txt      
+            
+      - name: Run python program
+        id: run-python-program
+        continue-on-error: true
+        run: |
+            source ${{ env.venv-path }}/bin/activate
+            cat <<EOF > main.py
+
+            import humanize
+            num = 1234567
+            # Convert it to a human-readable format
+            readable = humanize.intword(num)
+
+            print(f"Original number: {num}")
+            print(f"Humanized: {readable}")
+
+            EOF
+
+            python3 main.py
+
+  dependency-cache-job:
+    needs: [cache-demo-job]
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Cache python modules in dependency job
+        id: cache-python
+        uses: actions/cache@v4.2.4
+        env:
+          cache-name: cache-python-modules
+        with:
+          path: ./${{ env.venv-path }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.cache-name }}
+          
+      - name: Run python program in dependency job
+        id: run-python-program
+        continue-on-error: true
+        run: |
+            source ${{ env.venv-path }}/bin/activate
+            cat <<EOF > main.py
+
+            import humanize
+            num = 1234567
+            # Convert it to a human-readable format
+            readable = humanize.intword(num)
+
+            print(f"Original number: {num}")
+            print(f"Humanized: {readable}")
+
+            EOF
+
+            python3 main.py        
